@@ -1,8 +1,10 @@
 a_variable := 34.34
-other_variable69 := 35.35
+other_variable := 35.35
+num := a_variable + other_variable
 print(num)
 
 my_string = "Hello, \"\"\" World!"
 print(my_string)
 
 div := 6 / 9
+print(div)

@@ -1,5 +1,16 @@
 use std::{fs, time::Instant};
 
+#[derive(Debug, Clone, Copy)]
+struct Position {
+    line: usize,
+    column: usize,
+}
+impl std::fmt::Display for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}:{}", self.line, self.column)
+    }
+}
+
 #[derive(Debug)]
 enum Number {
     Int(i64),
@@ -16,14 +27,17 @@ enum Token {
     Punctuation(char),
 }
 
-#[derive(Debug, Clone, Copy)]
-struct Position {
-    line: usize,
-    column: usize,
+#[derive(Debug)]
+struct EnrichedToken {
+    start: Position,
+    end: Position,
+    token: Token,
 }
-impl std::fmt::Display for Position {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}:{}", self.line, self.column)
+impl std::fmt::Display for EnrichedToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let left = format!("{}", self.start);
+        let right = format!("{}", self.end);
+        write!(f, "{:>6}-{:<6} {:?}", left, right, self.token)
     }
 }
 
@@ -116,12 +130,12 @@ const fn is_number(ch: char) -> bool {
     matches!(ch, '0'..='9')
 }
 
-fn lex_code(code: String) -> Vec<Token> {
+fn lex_code(code: String) -> Vec<EnrichedToken> {
     let mut lexer = Lexer::new(code.chars().collect());
     let mut tokens = vec![];
 
     while let Some(ch) = lexer.chars.get(lexer.idx) {
-        // let start_pos = lexer.pos;
+        let start_pos = lexer.pos;
 
         let token: Token = match ch {
             // its a whitespace
@@ -187,7 +201,11 @@ fn lex_code(code: String) -> Vec<Token> {
         };
 
         // TODO: enrich the token with information about position
-        tokens.push(token);
+        tokens.push(EnrichedToken {
+            start: start_pos,
+            end: lexer.pos,
+            token,
+        });
 
         lexer.increment_idx();
     }
@@ -203,10 +221,9 @@ fn main() {
     let lex_time = start.elapsed();
 
     for tok in tokens {
-        match tok {
-            Token::Whitespace(_) => println!("\x1b[2m{:?}\x1b[0m", tok),
-            Token::String(s) => println!("String => {:?}", s),
-            _ => println!("{:?}", tok),
+        match tok.token {
+            Token::Whitespace(_) => {}
+            _ => println!("{}", tok),
         }
     }
 

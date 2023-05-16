@@ -1,0 +1,8 @@
+a_variable := 34.34
+other_variable69 := 35.35
+print(num)
+
+my_string = "Hello, \"\"\" World!"
+print(my_string)
+
+div := 6 / 9

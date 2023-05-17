@@ -3,3 +3,6 @@
 
 The Jiz programming language. A personal project to help me learn how
 programming languages are made.
+
+## TODO list
+- create a tree-sitter parser/syntax highlighting

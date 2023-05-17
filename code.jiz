@@ -1,10 +1,15 @@
-a_variable := 34.34
-other_variable := 35.35
-num := a_variable + other_variable
-print(num)
+fn sum(arr: int[]) -> int
+    mut accum := 0
+    for x in arr:
+        accum += x
+    end
+    return accum
+end
 
-my_string = "Hello, \"\"\" World!"
-print(my_string)
+res := sum([1, 2, 3])
 
-div := 6 / 9
-print(div)
+if res != 6
+    print("what? how?")
+else
+    print("{}", res)
+end

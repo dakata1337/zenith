@@ -9,13 +9,13 @@ impl std::fmt::Display for Position {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Number {
     Int(i64),
     Float(f64),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     Ident(String),
     Number(Number),
@@ -213,4 +213,64 @@ pub fn lex_code(code: String) -> Vec<EnrichedToken> {
     }
 
     tokens
+}
+
+mod tests {
+    #[allow(unused)]
+    use super::{Number, Token};
+
+    #[allow(unused)]
+    macro_rules! next_token {
+        ($a:expr) => {
+            $a.next().unwrap().token
+        };
+    }
+
+    #[test]
+    fn lex1() {
+        #[rustfmt::skip]
+        let code = 
+r#"a := 34
+b := 35
+res := a + b
+print(res)"#;
+
+        let tokens = super::lex_code(code.to_owned());
+        let mut tokens = tokens.iter();
+
+        assert_eq!(next_token!(tokens), Token::Ident("a".to_owned()));
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+        assert_eq!(next_token!(tokens), Token::Punctuation(':'));
+        assert_eq!(next_token!(tokens), Token::Punctuation('='));
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+        assert_eq!(next_token!(tokens), Token::Number(Number::Int(34)));
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+
+        assert_eq!(next_token!(tokens), Token::Ident("b".to_owned()));
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+        assert_eq!(next_token!(tokens), Token::Punctuation(':'));
+        assert_eq!(next_token!(tokens), Token::Punctuation('='));
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+        assert_eq!(next_token!(tokens), Token::Number(Number::Int(35)));
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+
+        assert_eq!(next_token!(tokens), Token::Ident("res".to_owned()));
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+        assert_eq!(next_token!(tokens), Token::Punctuation(':'));
+        assert_eq!(next_token!(tokens), Token::Punctuation('='));
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+        assert_eq!(next_token!(tokens), Token::Ident("a".to_owned()));
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+        assert_eq!(next_token!(tokens), Token::Punctuation('+'));
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+        assert_eq!(next_token!(tokens), Token::Ident("b".to_owned()));
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+
+        assert_eq!(next_token!(tokens), Token::Ident("print".to_owned()));
+        assert_eq!(next_token!(tokens), Token::Punctuation('('));
+        assert_eq!(next_token!(tokens), Token::Ident("res".to_owned()));
+        assert_eq!(next_token!(tokens), Token::Punctuation(')'));
+
+        assert!(tokens.next().is_none());
+    }
 }

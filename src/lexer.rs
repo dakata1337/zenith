@@ -16,13 +16,75 @@ pub enum Number {
 }
 
 #[derive(Debug, PartialEq)]
+pub enum Keyword {
+    Function,
+    If,
+    Else,
+    End,
+    Return,
+    Mutable,
+    For,
+    In,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum BuiltinType {
+    Int,
+    Float,
+    Boolean,
+    Array,
+    String,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Token {
     Ident(String),
     Number(Number),
     String(String),
     Comment(String),
     Whitespace(usize),
-    Punctuation(char),
+
+    Keyword(Keyword),
+    BuiltinType(BuiltinType),
+    ReturnType, // "->"
+
+    Assign,          // ":="
+    Eq,              // "=="
+    NotEq,           // "!="
+    GreaterThanOrEq, // ">="
+    LessThanOrEq,    // "<="
+    RelationalPlus,  // "+="
+    RelationalMinus, // "-="
+    RelationalMul,   // "*="
+    RelationalDiv,   // "/="
+
+    Bang,               // '!'
+    Shabang,            // '#'
+    Dollar,             // '$'
+    Percent,            // '%'
+    Ampersand,          // '&'
+    OpenParen,          // '('
+    CloseParen,         // ')'
+    Asterisk,           // '*'
+    Plus,               // '+'
+    Minus,              // '-'
+    Comma,              // ','
+    Period,             // '.'
+    Slash,              // '/'
+    Colon,              // ':'
+    Semicolon,          // ';'
+    LessThan,           // '<'
+    Equals,             // '='
+    GreaterThan,        // '>'
+    QuestionMark,       // '?'
+    AtSign,             // '@'
+    OpenSquareBracket,  // '['
+    Backslash,          // '\'
+    CloseSquareBracket, // ']'
+    Caret,              // '^'
+    OpenCurlyBrace,     // '{'
+    VerticalBar,        // '|'
+    CloseCurlyBrace,    // '}'
 }
 
 #[derive(Debug)]
@@ -59,6 +121,11 @@ impl Lexer {
             pos: Position { line: 1, column: 1 },
             last_pos: Position { line: 1, column: 1 },
         }
+    }
+
+    /// Returns the next character, without moving the lexer index.
+    fn peek_next_char(&self) -> Option<char> {
+        self.chars.get(self.idx + 1).copied()
     }
 
     /// Collects and returns all characters until the given condition is met.
@@ -122,8 +189,8 @@ const fn is_identifier(ch: char) -> bool {
 #[rustfmt::skip]
 const fn is_punctuation(ch: char) -> bool {
     matches!( ch, 
-        '!' | '#'  | '$' | '%' | '&' | '(' | ')' | '*' | '+' | ',' |
-        '-' | '.'  | '/' | ':' | ';' | '<' | '=' | '>' | '?' | '@' |
+        '!' | '#'  | '$' | '%' | '&' | '(' | ')' | '*' | '+' | '-' |
+        ',' | '.'  | '/' | ':' | ';' | '<' | '=' | '>' | '?' | '@' |
         '[' | '\\' | ']' | '^' | '{' | '|' | '}'
     )
 }
@@ -148,9 +215,24 @@ pub fn lex_code(code: String) -> Vec<EnrichedToken> {
             }
             // its an identifier
             ch if is_identifier(*ch) => {
-                // TODO: this doesn't allow variables to end with numbers :)
-                let ident = lexer.collect_until(|ch| !is_identifier(ch));
-                Token::Ident(ident)
+                let ident = lexer.collect_until(|ch| !(is_identifier(ch) || is_number(ch)));
+                match ident.as_str() {
+                    "int" => Token::BuiltinType(BuiltinType::Int),
+                    "float" => Token::BuiltinType(BuiltinType::Float),
+                    "boolean" => Token::BuiltinType(BuiltinType::Boolean),
+                    "string" => Token::BuiltinType(BuiltinType::String),
+
+                    "fn" => Token::Keyword(Keyword::Function),
+                    "if" => Token::Keyword(Keyword::If),
+                    "else" => Token::Keyword(Keyword::Else),
+                    "end" => Token::Keyword(Keyword::End),
+                    "return" => Token::Keyword(Keyword::Return),
+                    "mut" => Token::Keyword(Keyword::Mutable),
+                    "for" => Token::Keyword(Keyword::For),
+                    "in" => Token::Keyword(Keyword::In),
+
+                    _ => Token::Ident(ident),
+                }
             }
             // its a string
             '"' => {
@@ -175,7 +257,7 @@ pub fn lex_code(code: String) -> Vec<EnrichedToken> {
                 Token::String(s)
             }
             // its a comment
-            '/' if lexer.chars.get(lexer.idx + 1).unwrap_or(&'/') == &'/' => {
+            '/' if lexer.peek_next_char().unwrap_or('/') == '/' => {
                 lexer.increment_idx();
                 lexer.increment_idx();
                 let comment = lexer.collect_until(|c| c == '\n');
@@ -197,8 +279,69 @@ pub fn lex_code(code: String) -> Vec<EnrichedToken> {
             }
             // its a punctuation
             ch if is_punctuation(*ch) => {
-                // TODO: convert chars to punctuation tokens
-                Token::Punctuation(*ch)
+                // NOTE: i hate this! Still waiting for if-let chains to be stabalized :')
+                let next_ch = lexer.peek_next_char();
+                let double_matched = if next_ch.is_some() && is_punctuation(next_ch.unwrap()) {
+                    // this is safe because we checked it with .is_some()
+                    let next_ch = next_ch.unwrap();
+                    // because we previously peeked next_ch, we need to advance the idx
+                    lexer.idx += 1;
+
+                    match (*ch, next_ch) {
+                        (':', '=') => Some(Token::Assign),
+                        ('=', '=') => Some(Token::Eq),
+                        ('!', '=') => Some(Token::NotEq),
+                        ('>', '=') => Some(Token::GreaterThanOrEq),
+                        ('<', '=') => Some(Token::LessThanOrEq),
+                        ('[', ']') => Some(Token::BuiltinType(BuiltinType::Array)),
+                        ('-', '>') => Some(Token::ReturnType),
+                        ('+', '=') => Some(Token::RelationalPlus),
+                        ('-', '=') => Some(Token::RelationalMinus),
+                        ('*', '=') => Some(Token::RelationalMul),
+                        ('/', '=') => Some(Token::RelationalDiv),
+                        _ => {
+                            lexer.idx -= 1;
+                            None
+                        }
+                    }
+                } else {
+                    None
+                };
+
+                if let Some(token) = double_matched {
+                    token
+                } else {
+                    match ch {
+                        '!' => Token::Bang,
+                        '#' => Token::Shabang,
+                        '$' => Token::Dollar,
+                        '%' => Token::Percent,
+                        '&' => Token::Ampersand,
+                        '(' => Token::OpenParen,
+                        ')' => Token::CloseParen,
+                        '*' => Token::Asterisk,
+                        '+' => Token::Plus,
+                        '-' => Token::Minus,
+                        ',' => Token::Comma,
+                        '.' => Token::Period,
+                        '/' => Token::Slash,
+                        ':' => Token::Colon,
+                        ';' => Token::Semicolon,
+                        '<' => Token::LessThan,
+                        '=' => Token::Equals,
+                        '>' => Token::GreaterThan,
+                        '?' => Token::QuestionMark,
+                        '@' => Token::AtSign,
+                        '[' => Token::OpenSquareBracket,
+                        '\\' => Token::Backslash,
+                        ']' => Token::CloseSquareBracket,
+                        '^' => Token::Caret,
+                        '{' => Token::OpenCurlyBrace,
+                        '|' => Token::VerticalBar,
+                        '}' => Token::CloseCurlyBrace,
+                        _ => unimplemented!("punctuation: `{}`", ch),
+                    }
+                }
             }
             _ => panic!("unexpected char: `{}`", ch),
         };
@@ -212,12 +355,18 @@ pub fn lex_code(code: String) -> Vec<EnrichedToken> {
         lexer.increment_idx();
     }
 
+    if let Some(last_token) = tokens.last() {
+        if let Token::Whitespace(_) = last_token.token {
+            tokens.pop();
+        }
+    }
+
     tokens
 }
 
 mod tests {
     #[allow(unused)]
-    use super::{Number, Token};
+    use super::{Number, Token, Keyword, BuiltinType};
 
     #[allow(unused)]
     macro_rules! next_token {
@@ -240,36 +389,91 @@ print(res)"#;
 
         assert_eq!(next_token!(tokens), Token::Ident("a".to_owned()));
         assert_eq!(next_token!(tokens), Token::Whitespace(1));
-        assert_eq!(next_token!(tokens), Token::Punctuation(':'));
-        assert_eq!(next_token!(tokens), Token::Punctuation('='));
+        assert_eq!(next_token!(tokens), Token::Assign);
         assert_eq!(next_token!(tokens), Token::Whitespace(1));
         assert_eq!(next_token!(tokens), Token::Number(Number::Int(34)));
         assert_eq!(next_token!(tokens), Token::Whitespace(1));
 
         assert_eq!(next_token!(tokens), Token::Ident("b".to_owned()));
         assert_eq!(next_token!(tokens), Token::Whitespace(1));
-        assert_eq!(next_token!(tokens), Token::Punctuation(':'));
-        assert_eq!(next_token!(tokens), Token::Punctuation('='));
+        assert_eq!(next_token!(tokens), Token::Assign);
         assert_eq!(next_token!(tokens), Token::Whitespace(1));
         assert_eq!(next_token!(tokens), Token::Number(Number::Int(35)));
         assert_eq!(next_token!(tokens), Token::Whitespace(1));
 
         assert_eq!(next_token!(tokens), Token::Ident("res".to_owned()));
         assert_eq!(next_token!(tokens), Token::Whitespace(1));
-        assert_eq!(next_token!(tokens), Token::Punctuation(':'));
-        assert_eq!(next_token!(tokens), Token::Punctuation('='));
+        assert_eq!(next_token!(tokens), Token::Assign);
         assert_eq!(next_token!(tokens), Token::Whitespace(1));
         assert_eq!(next_token!(tokens), Token::Ident("a".to_owned()));
         assert_eq!(next_token!(tokens), Token::Whitespace(1));
-        assert_eq!(next_token!(tokens), Token::Punctuation('+'));
+        assert_eq!(next_token!(tokens), Token::Plus);
         assert_eq!(next_token!(tokens), Token::Whitespace(1));
         assert_eq!(next_token!(tokens), Token::Ident("b".to_owned()));
         assert_eq!(next_token!(tokens), Token::Whitespace(1));
 
         assert_eq!(next_token!(tokens), Token::Ident("print".to_owned()));
-        assert_eq!(next_token!(tokens), Token::Punctuation('('));
+        assert_eq!(next_token!(tokens), Token::OpenParen);
         assert_eq!(next_token!(tokens), Token::Ident("res".to_owned()));
-        assert_eq!(next_token!(tokens), Token::Punctuation(')'));
+        assert_eq!(next_token!(tokens), Token::CloseParen);
+
+        assert!(tokens.next().is_none());
+    }
+
+    #[test]
+    fn lex2() {
+        #[rustfmt::skip]
+        let code = 
+r#"mut res := []
+res.push(34)
+res.push(35)
+sum := res[0] + res[1]
+"#;
+
+        let tokens = super::lex_code(code.to_owned());
+        println!("{:#?}", tokens);
+        let mut tokens = tokens.iter();
+
+        assert_eq!(next_token!(tokens), Token::Keyword(Keyword::Mutable));
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+        assert_eq!(next_token!(tokens), Token::Ident("res".to_owned()));
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+        assert_eq!(next_token!(tokens), Token::Assign);
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+        assert_eq!(next_token!(tokens), Token::BuiltinType(BuiltinType::Array));
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+
+        assert_eq!(next_token!(tokens), Token::Ident("res".to_owned()));
+        assert_eq!(next_token!(tokens), Token::Period);
+        assert_eq!(next_token!(tokens), Token::Ident("push".to_owned()));
+        assert_eq!(next_token!(tokens), Token::OpenParen);
+        assert_eq!(next_token!(tokens), Token::Number(Number::Int(34)));
+        assert_eq!(next_token!(tokens), Token::CloseParen);
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+
+        assert_eq!(next_token!(tokens), Token::Ident("res".to_owned()));
+        assert_eq!(next_token!(tokens), Token::Period);
+        assert_eq!(next_token!(tokens), Token::Ident("push".to_owned()));
+        assert_eq!(next_token!(tokens), Token::OpenParen);
+        assert_eq!(next_token!(tokens), Token::Number(Number::Int(35)));
+        assert_eq!(next_token!(tokens), Token::CloseParen);
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+
+        assert_eq!(next_token!(tokens), Token::Ident("sum".to_owned()));
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+        assert_eq!(next_token!(tokens), Token::Assign);
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+        assert_eq!(next_token!(tokens), Token::Ident("res".to_owned()));
+        assert_eq!(next_token!(tokens), Token::OpenSquareBracket);
+        assert_eq!(next_token!(tokens), Token::Number(Number::Int(0)));
+        assert_eq!(next_token!(tokens), Token::CloseSquareBracket);
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+        assert_eq!(next_token!(tokens), Token::Plus);
+        assert_eq!(next_token!(tokens), Token::Whitespace(1));
+        assert_eq!(next_token!(tokens), Token::Ident("res".to_owned()));
+        assert_eq!(next_token!(tokens), Token::OpenSquareBracket);
+        assert_eq!(next_token!(tokens), Token::Number(Number::Int(1)));
+        assert_eq!(next_token!(tokens), Token::CloseSquareBracket);
 
         assert!(tokens.next().is_none());
     }

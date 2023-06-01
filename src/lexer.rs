@@ -200,7 +200,7 @@ const fn is_number(ch: char) -> bool {
     matches!(ch, '0'..='9')
 }
 
-pub fn lex_code(code: String) -> Vec<EnrichedToken> {
+pub fn lex_code(code: &str) -> Vec<EnrichedToken> {
     let mut lexer = Lexer::new(code.chars().collect());
     let mut tokens = vec![];
 
@@ -384,7 +384,7 @@ b := 35
 res := a + b
 print(res)"#;
 
-        let tokens = super::lex_code(code.to_owned());
+        let tokens = super::lex_code(code);
         let mut tokens = tokens.iter();
 
         assert_eq!(next_token!(tokens), Token::Ident("a".to_owned()));
@@ -430,7 +430,7 @@ res.push(35)
 sum := res[0] + res[1]
 "#;
 
-        let tokens = super::lex_code(code.to_owned());
+        let tokens = super::lex_code(code);
         println!("{:#?}", tokens);
         let mut tokens = tokens.iter();
 

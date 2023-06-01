@@ -7,7 +7,7 @@ fn main() {
     let code = fs::read_to_string("code.jiz").unwrap();
 
     let start = Instant::now();
-    let tokens = lex_code(code);
+    let tokens = lex_code(&code);
     let lex_time = start.elapsed();
 
     for tok in tokens {

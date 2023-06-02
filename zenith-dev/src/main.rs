@@ -1,17 +1,17 @@
 use std::{fs, time::Instant};
 
-mod lexer;
-use lexer::{lex_code, Token};
+use zenith_lexer::{tokenize_code, types::Token};
 
 fn main() {
-    let code = fs::read_to_string("code.jiz").unwrap();
+    let code = fs::read_to_string("code.zen").unwrap();
 
     let start = Instant::now();
-    let tokens = lex_code(&code);
+    let tokens = tokenize_code(&code);
     let lex_time = start.elapsed();
 
     for tok in tokens {
-        match tok.get_token() {
+        // let (start, end) = tok.get_position();
+        match tok.strip_token() {
             Token::Whitespace(_) => {}
             _ => println!("{}", tok),
         }

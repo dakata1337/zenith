@@ -3,5 +3,12 @@
 version = 3
 
 [[package]]
-name = "jiz"
+name = "zenith-dev"
+version = "0.1.0"
+dependencies = [
+ "zenith-lexer",
+]
+
+[[package]]
+name = "zenith-lexer"
 version = "0.1.0"

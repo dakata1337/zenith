@@ -1,183 +1,8 @@
-#[derive(Debug, Clone, Copy)]
-pub struct Position {
-    line: usize,
-    column: usize,
-}
-impl std::fmt::Display for Position {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}:{}", self.line, self.column)
-    }
-}
+mod lexer;
+use lexer::Lexer;
 
-#[derive(Debug, PartialEq)]
-pub enum Number {
-    Int(i64),
-    Float(f64),
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Keyword {
-    Function,
-    If,
-    Else,
-    End,
-    Return,
-    Mutable,
-    For,
-    In,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum BuiltinType {
-    Int,
-    Float,
-    Boolean,
-    Array,
-    String,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Token {
-    Ident(String),
-    Number(Number),
-    String(String),
-    Comment(String),
-    Whitespace(usize),
-
-    Keyword(Keyword),
-    BuiltinType(BuiltinType),
-    ReturnType, // "->"
-
-    Assign,          // ":="
-    Eq,              // "=="
-    NotEq,           // "!="
-    GreaterThanOrEq, // ">="
-    LessThanOrEq,    // "<="
-    RelationalPlus,  // "+="
-    RelationalMinus, // "-="
-    RelationalMul,   // "*="
-    RelationalDiv,   // "/="
-
-    Bang,               // '!'
-    Shabang,            // '#'
-    Dollar,             // '$'
-    Percent,            // '%'
-    Ampersand,          // '&'
-    OpenParen,          // '('
-    CloseParen,         // ')'
-    Asterisk,           // '*'
-    Plus,               // '+'
-    Minus,              // '-'
-    Comma,              // ','
-    Period,             // '.'
-    Slash,              // '/'
-    Colon,              // ':'
-    Semicolon,          // ';'
-    LessThan,           // '<'
-    Equals,             // '='
-    GreaterThan,        // '>'
-    QuestionMark,       // '?'
-    AtSign,             // '@'
-    OpenSquareBracket,  // '['
-    Backslash,          // '\'
-    CloseSquareBracket, // ']'
-    Caret,              // '^'
-    OpenCurlyBrace,     // '{'
-    VerticalBar,        // '|'
-    CloseCurlyBrace,    // '}'
-}
-
-#[derive(Debug)]
-pub struct EnrichedToken {
-    start: Position,
-    end: Position,
-    token: Token,
-}
-impl EnrichedToken {
-    pub fn get_token(&self) -> &Token {
-        &self.token
-    }
-}
-impl std::fmt::Display for EnrichedToken {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let left = format!("{}", self.start);
-        let right = format!("{}", self.end);
-        write!(f, "{:>6}-{:<6} {:?}", left, right, self.token)
-    }
-}
-
-pub struct Lexer {
-    chars: Vec<char>,
-    idx: usize,
-    pos: Position,
-    last_pos: Position,
-}
-
-impl Lexer {
-    pub fn new(chars: Vec<char>) -> Self {
-        Self {
-            chars,
-            idx: 0,
-            pos: Position { line: 1, column: 1 },
-            last_pos: Position { line: 1, column: 1 },
-        }
-    }
-
-    /// Returns the next character, without moving the lexer index.
-    fn peek_next_char(&self) -> Option<char> {
-        self.chars.get(self.idx + 1).copied()
-    }
-
-    /// Collects and returns all characters until the given condition is met.
-    fn collect_until(&mut self, cond: fn(char) -> bool) -> String {
-        let mut s = String::new();
-
-        while let Some(ch) = self.chars.get(self.idx) {
-            if cond(*ch) {
-                self.decrement_idx();
-                break;
-            }
-            s.push(*ch);
-            self.increment_idx();
-        }
-
-        s
-    }
-
-    /// Skip until the given condition is met and returns the number of characters skipped.
-    fn skip_until(&mut self, cond: fn(char) -> bool) -> usize {
-        let start = self.idx;
-        while let Some(ch) = self.chars.get(self.idx) {
-            if cond(*ch) {
-                self.decrement_idx();
-                break;
-            }
-            self.increment_idx();
-        }
-        self.idx - start + 1
-    }
-
-    fn decrement_idx(&mut self) {
-        self.pos = self.last_pos;
-        self.idx -= 1;
-    }
-
-    fn increment_idx(&mut self) {
-        self.last_pos = self.pos;
-        // TODO: this doesn't work when '\n' whitespace is at the end of the file.
-        // It registers the end position of the token as `line + 1` which doesn't exist.
-        match self.chars.get(self.idx) {
-            Some('\n') => {
-                self.pos.line += 1;
-                self.pos.column = 1;
-            }
-            _ => {
-                self.pos.column += 1;
-            }
-        }
-        self.idx += 1;
-    }
-}
+pub mod types;
+use types::{BuiltinType, EnrichedToken, Keyword, Number, Token};
 
 #[inline]
 const fn is_identifier(ch: char) -> bool {
@@ -199,12 +24,12 @@ const fn is_number(ch: char) -> bool {
     matches!(ch, '0'..='9')
 }
 
-pub fn lex_code(code: &str) -> Vec<EnrichedToken> {
+pub fn tokenize_code(code: &str) -> Vec<EnrichedToken> {
     let mut lexer = Lexer::new(code.chars().collect());
     let mut tokens = vec![];
 
-    while let Some(ch) = lexer.chars.get(lexer.idx) {
-        let start_pos = lexer.pos;
+    while let Some(ch) = lexer.get_current_char() {
+        let start_pos = lexer.get_position();
 
         let token: Token = match ch {
             // its a whitespace
@@ -213,7 +38,7 @@ pub fn lex_code(code: &str) -> Vec<EnrichedToken> {
                 Token::Whitespace(len)
             }
             // its an identifier
-            ch if is_identifier(*ch) => {
+            ch if is_identifier(ch) => {
                 let ident = lexer.collect_until(|ch| !(is_identifier(ch) || is_number(ch)));
                 match ident.as_str() {
                     "int" => Token::BuiltinType(BuiltinType::Int),
@@ -237,12 +62,12 @@ pub fn lex_code(code: &str) -> Vec<EnrichedToken> {
             '"' => {
                 lexer.increment_idx();
                 let mut s = String::new();
-                while let Some(ch) = lexer.chars.get(lexer.idx).copied() {
+                while let Some(ch) = lexer.get_current_char() {
                     match ch {
                         '\\' => {
                             lexer.increment_idx();
-                            if let Some(ch) = lexer.chars.get(lexer.idx) {
-                                s.push(*ch);
+                            if let Some(ch) = lexer.get_current_char() {
+                                s.push(ch);
                             }
                         }
                         '"' => break,
@@ -263,7 +88,7 @@ pub fn lex_code(code: &str) -> Vec<EnrichedToken> {
                 Token::Comment(comment.trim().to_owned())
             }
             // its a number
-            ch if is_number(*ch) => {
+            ch if is_number(ch) => {
                 // TODO: this has some weird behavior with incorrectly formatted floats
                 // For example "6. 9" will be evaluated to `6`, whitespace '9'
                 let number_str = lexer.collect_until(|ch| !is_number(ch) && ch != '.');
@@ -277,16 +102,16 @@ pub fn lex_code(code: &str) -> Vec<EnrichedToken> {
                 }
             }
             // its a punctuation
-            ch if is_punctuation(*ch) => {
+            ch if is_punctuation(ch) => {
                 // NOTE: i hate this! Still waiting for if-let chains to be stabalized :')
                 let next_ch = lexer.peek_next_char();
                 let double_matched = if next_ch.is_some() && is_punctuation(next_ch.unwrap()) {
                     // this is safe because we checked it with .is_some()
                     let next_ch = next_ch.unwrap();
                     // because we previously peeked next_ch, we need to advance the idx
-                    lexer.idx += 1;
+                    lexer.increment_idx();
 
-                    match (*ch, next_ch) {
+                    match (ch, next_ch) {
                         ('[', ']') => Some(Token::BuiltinType(BuiltinType::Array)),
 
                         (':', '=') => Some(Token::Assign),
@@ -300,7 +125,7 @@ pub fn lex_code(code: &str) -> Vec<EnrichedToken> {
                         ('*', '=') => Some(Token::RelationalMul),
                         ('/', '=') => Some(Token::RelationalDiv),
                         _ => {
-                            lexer.idx -= 1;
+                            lexer.decrement_idx();
                             None
                         }
                     }
@@ -346,17 +171,12 @@ pub fn lex_code(code: &str) -> Vec<EnrichedToken> {
             _ => panic!("unexpected char: `{}`", ch),
         };
 
-        tokens.push(EnrichedToken {
-            start: start_pos,
-            end: lexer.pos,
-            token,
-        });
-
+        tokens.push(EnrichedToken::new(start_pos, lexer.get_position(), token));
         lexer.increment_idx();
     }
 
     if let Some(last_token) = tokens.last() {
-        if let Token::Whitespace(_) = last_token.token {
+        if let Token::Whitespace(_) = last_token.strip_token() {
             tokens.pop();
         }
     }
@@ -366,12 +186,12 @@ pub fn lex_code(code: &str) -> Vec<EnrichedToken> {
 
 mod tests {
     #[allow(unused)]
-    use super::{BuiltinType, Keyword, Number, Token};
+    use super::{tokenize_code, BuiltinType, Keyword, Number, Token};
 
     #[allow(unused)]
     macro_rules! next_token {
         ($a:expr) => {
-            $a.next().unwrap().token
+            *$a.next().unwrap().strip_token()
         };
     }
 
@@ -384,7 +204,7 @@ b := 35
 res := a + b
 print(res)"#;
 
-        let tokens = super::lex_code(code);
+        let tokens = tokenize_code(code);
         let mut tokens = tokens.iter();
 
         assert_eq!(next_token!(tokens), Token::Ident("a".to_owned()));
@@ -430,7 +250,7 @@ res.push(35)
 sum := res[0] + res[1]
 "#;
 
-        let tokens = super::lex_code(code);
+        let tokens = tokenize_code(code);
         println!("{:#?}", tokens);
         let mut tokens = tokens.iter();
 

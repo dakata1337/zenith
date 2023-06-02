@@ -22,3 +22,6 @@ jobs:
     - name: Run tests - zenith-lexer
       working-directory: ./zenith-lexer
       run: cargo test --verbose
+    - name: Run Clippy - zenith-lexer
+      working-directory: ./zenith-lexer
+      run: cargo clippy

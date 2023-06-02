@@ -130,7 +130,6 @@ impl Lexer {
 
     /// Collects and returns all characters until the given condition is met.
     fn collect_until(&mut self, cond: fn(char) -> bool) -> String {
-        // TODO: change this to use string slices (&str)
         let mut s = String::new();
 
         while let Some(ch) = self.chars.get(self.idx) {
@@ -288,12 +287,13 @@ pub fn lex_code(code: &str) -> Vec<EnrichedToken> {
                     lexer.idx += 1;
 
                     match (*ch, next_ch) {
+                        ('[', ']') => Some(Token::BuiltinType(BuiltinType::Array)),
+
                         (':', '=') => Some(Token::Assign),
                         ('=', '=') => Some(Token::Eq),
                         ('!', '=') => Some(Token::NotEq),
                         ('>', '=') => Some(Token::GreaterThanOrEq),
                         ('<', '=') => Some(Token::LessThanOrEq),
-                        ('[', ']') => Some(Token::BuiltinType(BuiltinType::Array)),
                         ('-', '>') => Some(Token::ReturnType),
                         ('+', '=') => Some(Token::RelationalPlus),
                         ('-', '=') => Some(Token::RelationalMinus),
@@ -366,7 +366,7 @@ pub fn lex_code(code: &str) -> Vec<EnrichedToken> {
 
 mod tests {
     #[allow(unused)]
-    use super::{Number, Token, Keyword, BuiltinType};
+    use super::{BuiltinType, Keyword, Number, Token};
 
     #[allow(unused)]
     macro_rules! next_token {

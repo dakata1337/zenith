@@ -21,7 +21,7 @@ const fn is_punctuation(ch: char) -> bool {
 
 #[inline]
 const fn is_number(ch: char) -> bool {
-    matches!(ch, '0'..='9')
+    ch.is_ascii_digit()
 }
 
 pub fn tokenize_code(code: &str) -> Vec<EnrichedToken> {
@@ -103,34 +103,31 @@ pub fn tokenize_code(code: &str) -> Vec<EnrichedToken> {
             }
             // its a punctuation
             ch if is_punctuation(ch) => {
-                // NOTE: i hate this! Still waiting for if-let chains to be stabalized :')
-                let next_ch = lexer.peek_next_char();
-                let double_matched = if next_ch.is_some() && is_punctuation(next_ch.unwrap()) {
-                    // this is safe because we checked it with .is_some()
-                    let next_ch = next_ch.unwrap();
-                    // because we previously peeked next_ch, we need to advance the idx
-                    lexer.increment_idx();
+                let double_matched = match lexer.peek_next_char() {
+                    Some(next_ch) if is_punctuation(next_ch) => {
+                        // because we previously peeked next_ch, we need to advance the idx
+                        lexer.increment_idx();
 
-                    match (ch, next_ch) {
-                        ('[', ']') => Some(Token::BuiltinType(BuiltinType::Array)),
+                        match (ch, next_ch) {
+                            ('[', ']') => Some(Token::BuiltinType(BuiltinType::Array)),
 
-                        (':', '=') => Some(Token::Assign),
-                        ('=', '=') => Some(Token::Eq),
-                        ('!', '=') => Some(Token::NotEq),
-                        ('>', '=') => Some(Token::GreaterThanOrEq),
-                        ('<', '=') => Some(Token::LessThanOrEq),
-                        ('-', '>') => Some(Token::ReturnType),
-                        ('+', '=') => Some(Token::RelationalPlus),
-                        ('-', '=') => Some(Token::RelationalMinus),
-                        ('*', '=') => Some(Token::RelationalMul),
-                        ('/', '=') => Some(Token::RelationalDiv),
-                        _ => {
-                            lexer.decrement_idx();
-                            None
+                            (':', '=') => Some(Token::Assign),
+                            ('=', '=') => Some(Token::Eq),
+                            ('!', '=') => Some(Token::NotEq),
+                            ('>', '=') => Some(Token::GreaterThanOrEq),
+                            ('<', '=') => Some(Token::LessThanOrEq),
+                            ('-', '>') => Some(Token::ReturnType),
+                            ('+', '=') => Some(Token::RelationalPlus),
+                            ('-', '=') => Some(Token::RelationalMinus),
+                            ('*', '=') => Some(Token::RelationalMul),
+                            ('/', '=') => Some(Token::RelationalDiv),
+                            _ => {
+                                lexer.decrement_idx();
+                                None
+                            }
                         }
                     }
-                } else {
-                    None
+                    _ => None,
                 };
 
                 if let Some(token) = double_matched {

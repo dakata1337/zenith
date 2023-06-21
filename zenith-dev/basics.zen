@@ -1,0 +1,4 @@
+mut my_num := 69
+my_num += 420
+
+println("{}", my_num)
